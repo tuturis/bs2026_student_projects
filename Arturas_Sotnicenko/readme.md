@@ -73,4 +73,79 @@ The current pipeline is organized so notebook-facing imports stay stable while i
 - `macro_indicator_country_profiles.py`: country metadata, ISO lookups, and country-specific harmonization hooks.
 - `macro_indicator_helpers.py`: URL resolution, parsing helpers, and source normalization utilities.
 - `macro_indicator_core.py`: orchestration, harmonization, chart generation, and cache validation.
+- `macro_indicator_notebook_helpers.py`: shared notebook context builders and display helpers for multi-country notebook sections.
 - `macro_indicator_adapters.py` / `macro_indicator_constants.py`: source adapters, templates, and mapping registries.
+
+## Baltic Output Layout
+
+The Baltic batch layout is reserved as a separate additive output root and does not replace the existing Lithuania default output directory.
+
+- Baltic output root:
+  - `bs2026_student_projects/Arturas_Sotnicenko/outputs_baltics`
+- Per-country directories:
+  - `bs2026_student_projects/Arturas_Sotnicenko/outputs_baltics/LT`
+  - `bs2026_student_projects/Arturas_Sotnicenko/outputs_baltics/LV`
+  - `bs2026_student_projects/Arturas_Sotnicenko/outputs_baltics/EE`
+- Root-level batch summary artifacts:
+  - `bs2026_student_projects/Arturas_Sotnicenko/outputs_baltics/country_run_summary.csv`
+  - `bs2026_student_projects/Arturas_Sotnicenko/outputs_baltics/country_acceptance_summary.csv`
+
+This path convention is the contract for upcoming batch-runner work.
+
+## Baltic Batch API
+
+The batch orchestration entrypoint is:
+
+```python
+from macro_indicator_pipeline import run_country_batch
+
+batch = run_country_batch(
+    country_codes=("LT", "LV", "EE"),
+    outdir_root="bs2026_student_projects/Arturas_Sotnicenko/outputs_baltics",
+)
+```
+
+The batch result exposes:
+- `country_results`: per-country pipeline results keyed by country code
+- `country_output_dirs`: resolved output directory per country
+- `country_run_summary`: one summary row per country
+- `country_acceptance_summary`: acceptance checks stacked across countries
+
+Calling `run_country_batch(...)` also persists the batch-level summary artifacts to the Baltic output root:
+- `country_run_summary.csv`
+- `country_acceptance_summary.csv`
+
+Batch reuse remains isolated per country output directory, and cached reuse is validated against the run metadata contract, including `country_code` and `chart_profile`.
+
+## Baltic Notebook Helpers
+
+The shared notebook helper path for the Baltic notebook is:
+
+```python
+from macro_indicator_pipeline import render_country_notebook_section
+
+country_context = render_country_notebook_section(
+    country_code="LT",
+    country_results=batch["country_results"]["LT"],
+    country_output_dir=batch["country_output_dirs"]["LT"],
+)
+```
+
+The notebook helper surface also exposes:
+- `DEFAULT_NOTEBOOK_INDICATOR_GROUPS`
+- `build_country_notebook_context(...)`
+- `display_country_diagnostics(...)`
+- `render_country_indicator_groups(...)`
+- `display_country_zscore_visuals(...)`
+
+These helpers render from the already-produced batch result tables and chart manifests; they do not trigger a second data collection pass.
+
+## Baltic Notebooks
+
+The Baltic notebooks live at:
+- `bs2026_student_projects/Arturas_Sotnicenko/Macroeconomic_timeseries_baltics.ipynb`
+- `bs2026_student_projects/Arturas_Sotnicenko/Macroeconomic_timeseries_baltics_normalized.ipynb`
+
+`Macroeconomic_timeseries_baltics.ipynb` runs one Baltic batch with `chart_profile="harmonized_overlay"` and renders separate Lithuania, Latvia, and Estonia sections through `render_country_notebook_section(...)`.
+
+`Macroeconomic_timeseries_baltics_normalized.ipynb` reuses the same Baltic batch outputs but renders only the normalized z-score visuals for each country through `build_country_notebook_context(...)` and `display_country_zscore_visuals(...)`.
